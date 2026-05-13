@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire Danger Dashboard</title>
+    <style>
+        body {
+            font-family: system-ui, Segeo UI, Roboto, sans-serif;
+            color: #e6e6eb;
+            background-color: #1a1a1f;
+            margin: 0;
+            padding: 1rem;
+            line-height: 1.0;
+            font-size: 0.8rem;
+        }
+        
+        h2, h3 {
+            margin-top: 0;
+            color: #ffffff;
+        }
+        
+        .horizontal-box {
+            display: flex;
+            justify-content: space-between;
+            gap: 2rem;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            flex-wrap: nowrap;
+        }
+        
+        .labeled-input {
+            display: flex;
+            justify-content: space-between;
+            align0items: center;
+            margin: 0.75rem 0;
+        }
+        
+        form {
+            position: sticky;
+            top: 1rem;
+            height: fit-content;
+            background: #24242a;
+            padding: 1rem;
+            border-radius: 8px;
+            width: 320px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
+            max-height: calc(100vh - 2rem);
+            overflow-y: auto;
+        }
+        
+        input, select {
+            background-color: #e6e6eb;
+            color: #1a1a1f;
+            border-radius: 4px;
+            border: none;
+            padding: 0.35rem 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        input[type="number"] {
+            width: 3rem;
+        }
+        
+        input[type="date"],
+        select {
+            max-width: 10rem;
+        }
+        
+        input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+        
+        button {
+            backgrond: #d46a1f;
+            color: #1a1a1f;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: background 0.2s ease;
+        }
+        
+        canvas {
+            background: #24242a;
+            padding: 0.5rem;
+            border-radius: 8px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
+            margin-bottom: 2rem;
+        }
+        
+        p {
+            max-width: 40vw;
+            color: #c8c8d0;
+        }
+        
+        .data {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: hidden;
+        }
+    </style>
+</head>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
+<body>
+    <div class="horizontal-box">
+    </div>
+    <div class="horizontal-box">
+        <div class="data">
+            <h2>Data</h2>
+            {% if high_perc + med_perc + low_perc != 0 %}
+                <canvas id="myChart" style="width:100%;max-width:230px;max-height:230px;"></canvas>
+            {% else %}
+                <p>No data within this time.</p>
+            {% endif %}
+            <div class="horizontal-box">
+                <div>
+                    <h3>Current Info</h3>
+                    <p>Date: {{most_recent[1]}}<br>Temp: {{most_recent[3]}}&deg;C<br>Hum: {{most_recent[2]}}%</p>
+                </div>
+                <div>
+                    <h3>Most Recent High</h3>
+                    <p>Date: {{most_recent_high[1]}}<br>Temp: {{most_recent_high[3]}}&deg;C<br>Hum: {{most_recent_high[2]}}%</p>
+                </div>
+            </div>
+        </div>
+        <div>
+            <h2>Controls</h2>
+            <form method="post">
+                <div class="labeled-input">
+                    <label for="start">Start Date</label>
+                    <input type="date" name="start" id="start">
+                </div>
+                <div class="labeled-input">
+                    <label for="End Date">End Date</label>
+                    <input type="date" name="end" id="end">
+                </div>
+                <div class="labeled-input">
+                    <label for="recalculate">Threashold Actions</label>
+                    <select id="recalculate" name="recalculate">
+                        <option value="display">Display Only</option>
+                        <option value="update">Update Only</option>
+                        <option value="both" selected>Display and Update</option>
+                    </select>
+                </div>
+                <div class="labeled-input">
+                    <label for="temp-low">Low Temperature Threashold</label>
+                    <span>
+                        <input type="number" value="{{low_t_thresh}}" name="temp-low" id="temp-low">
+                        <label for="temp-low">&deg;C</label>
+                    </span>
+                </div>
+                <div class="labeled-input">
+                    <label for="temp-high">High Temperature Threashold</label>
+                    <span>
+                        <input type="number" value="{{high_t_thresh}}" name="temp-high" id="temp-high">
+                        <label for="temp-high">&deg;C</label>
+                    </span>
+                </div>
+                <div class="labeled-input">
+                    <label for="hum-low">Low Humidity Threashold</label>
+                    <span>
+                        <input type="number" value="{{low_h_thresh}}" name="hum-low" id="hum-low">
+                        <label for="hum-low">%</label>
+                    </span>
+                </div>
+                <div class="labeled-input">
+                    <label for="hum-high">High Humidity Threashold</label>
+                    <span>
+                        <input type="number" value="{{high_h_thresh}}" name="hum-high" id="hum-high">
+                        <label for="hum-high">%</label>
+                    </span>
+                </div>
+                <div class="horizontal-box"><button type="submit">Adjust</button></div>
+            </form>
+        </div>
+    </div>
+    <script>
+        const xValues = ["High", "Medium", "Low"];
+        const yValues = [{{high_perc}}, {{med_perc}}, {{low_perc}}];
+        const barColors = ["red", "orange", "green"];
+
+        const ctx = document.getElementById('myChart');
+
+        new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: xValues,
+            datasets: [{
+            backgroundColor: barColors,
+            data: yValues
+            }]
+        },
+        options: {
+            plugins: {
+            legend: {display: false},
+            title: {
+                display: true,
+                text: "Recorded Fire Danger %",
+                font: {size: 16},
+                color: "oklch(89.143% 0.0001 271.152)"
+            }
+            }
+        }
+        });
+    </script>
+</body>
+</html>
